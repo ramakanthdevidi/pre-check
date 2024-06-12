@@ -1,83 +1,23 @@
 ---
-- name: Pre-Checks
+- name: Check Jenkins Master-Slave Connection Problems
   hosts: localhost
   gather_facts: no
+
   vars:
-    git_command: git --version
-    maven_command: mvn --version
-    kubectl_command: kubectl version --client
-    sonar_url: http://10.138.77.104:9000
-    docker_registry_url: https://hub.docker.com/u/bhavanaguda
-    memory_threshold_mb: 1024
+    jenkins_url: "http://jenkins_master:8080"
+    slave_name: "my-slave"
+
   tasks:
-    - name: Check if Git is installed
-      command: "{{ git_command }}"
-      register: git_result
-      ignore_errors: yes
-    - name: git
-      debug:
-        msg: Git is not installed.
-      when: git_result is failed
-    - name: Check if Maven is installed
-      command: "{{ maven_command }}"
-      register: maven_result
-      ignore_errors: yes
-    - name: maven
-      debug:
-        msg: Maven is not installed.
-      when: maven_result is failed
-    - name: Check if Kubernetes is installed
-      command: "{{ kubectl_command }}"
-      register: kubectl_result
-      ignore_errors: yes
-    - name: Kubernetes
-      debug:
-        msg: Kubernetes is not installed.
-      when: kubectl_result is failed
-    - name: Check if SonarQube is reachable
+    - name: Check Jenkins Master-Slave connection
       uri:
-        url: "{{ sonar_url }}"
+        url: "{{ jenkins_url }}/computer/{{ slave_name }}/api/json"
+        method: GET
         return_content: yes
-        status_code: 200
-      register: sonar_result
+      register: slave_status
       ignore_errors: yes
-    - name: SonarQube
-      debug:
-        msg: SonarQube is not reachable.
-      when: sonar_result.status != 200
-    - name: Check if Docker Registry is reachable
-      uri:
-        url: "{{ docker_registry_url }}"
-        return_content: yes
-        status_code: 200
-      register: docker_result
-      ignore_errors: yes
-    - name: Docker
-      debug:
-        msg: Docker Registry is not reachable.
-      when: docker_result.status != 200
-    - name: Check for Out of Memory errors in journalctl
-      shell: journalctl -k | grep -i 'out of memory'
-      register: journalctl_oom_errors
-      changed_when: false
-      tags: memory_check
-      when: dmesg_oom_errors.stdout != ''
-      tags: memory_check
-    - name: Fail if OOM errors are found in journalctl
+
+    - name: Ensure Slave is online
       fail:
-        msg: Out of Memory errors found in journalctl logs
-      when: journalctl_oom_errors.stdout != ''
-      tags: memory_check
-    - name: Check available memory on Jenkins server
-      command: free -m
-      register: free_memory
-      tags: memory_check
-    - name: Set fact for available memory
-      set_fact:
-        available_memory: "{{ free_memory.stdout_lines[1].split()[6] }}"
-      tags: memory_check
-    - name: Ensure available memory is above threshold
-      fail:
-        msg: Available memory is below {{ memory_threshold_mb }}MB
-      when: available_memory | int < memory_threshold_mb
-      tags: memory_check
+        msg: "Slave {{ slave_name }} is not online or unreachable."
+      when: slave_status.json.offline == true or slave_status.failed
+      tags: connection_check
