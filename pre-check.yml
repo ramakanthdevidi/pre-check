@@ -4,14 +4,15 @@
   gather_facts: no
 
   vars:
-    jenkins_url: "http://44.223.48.234:8080/"
+    jenkins_ip: "44.223.48.234"
+    jenkins_port: 8080  # Assuming default Jenkins port is used
     jenkins_user: "admin"
-    jenkins_token: "11ba504ff33f0b10643ee54e7b3068f1ac"
+    jenkins_token: "118e1fc9091f867ce9a87f71505e3bb4b8"
 
   tasks:
     - name: Get Jenkins build agents status
       uri:
-        url: "{{ jenkins_url }}/computer/api/json"
+        url: "http://{{ jenkins_ip }}:{{ jenkins_port }}/computer/api/json"
         user: "{{ jenkins_user }}"
         password: "{{ jenkins_token }}"
         return_content: yes
