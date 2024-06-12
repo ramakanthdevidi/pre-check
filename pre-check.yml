@@ -1,9 +1,11 @@
 ---
-- name: Pre-Checks for Git, Maven, Kubernetes, SonarQube, and Docker Registry
+- name: Pre-Checks for Jenkins Environment
   hosts: localhost
   gather_facts: no
 
   vars:
+    jenkins_url: "http://jenkins_master:8080"
+    slave_name: "my-slave"
     git_command: "git --version"
     maven_command: "mvn --version"
     kubectl_command: "kubectl version --client"
@@ -11,6 +13,20 @@
     docker_registry_url: "https://hub.docker.com/u/bhavanaguda"
 
   tasks:
+    - name: Check Jenkins Master-Slave connection
+      uri:
+        url: "{{ jenkins_url }}/computer/{{ slave_name }}/api/json"
+        method: GET
+        return_content: yes
+      register: slave_status
+      ignore_errors: yes
+
+    - name: Ensure Slave is online
+      fail:
+        msg: "Slave {{ slave_name }} is not online or unreachable."
+      when: slave_status.json.offline == true or slave_status.failed
+      tags: connection_check
+
     - name: Check if Git is installed
       command: "{{ git_command }}"
       register: git_result
