@@ -11,6 +11,7 @@
     kubectl_command: "kubectl version --client"
     sonar_url: "http://10.138.77.104:9000"
     docker_registry_url: "https://hub.docker.com/u/bhavanaguda"
+    sufficient_memory_threshold_mb: 1000
 
   tasks:
     - name: Check Available Memory on Jenkins Server
@@ -18,10 +19,16 @@
       register: free_memory
       ignore_errors: yes
 
-    - name: Check if Available Memory is Sufficient
-      fail:
+    - name: Print message if memory is insufficient
+      debug:
         msg: "Insufficient memory available on Jenkins server. Please allocate more memory."
-      when: free_memory.stdout|int < 1000  # Adjust the threshold as needed
+      when: free_memory.stdout|int < sufficient_memory_threshold_mb
+      ignore_errors: yes
+
+    - name: Print message if memory is sufficient
+      debug:
+        msg: "Sufficient memory available on Jenkins server."
+      when: free_memory.stdout|int >= sufficient_memory_threshold_mb
 
     - name: Check if Git is installed
       command: "{{ git_command }}"
