@@ -90,3 +90,16 @@
       debug:
         msg: "Docker Registry is not reachable."
       when: docker_result.status != 200
+
+    # Add the tasks for checking Jenkins build agents here
+    - name: Get Jenkins build agents status
+      uri:
+        url: "http://{{ jenkins_ip }}:{{ jenkins_port }}/computer/api/json"
+        return_content: yes
+      register: build_agents
+      ignore_errors: yes
+
+    - name: Print build agents status
+      debug:
+        msg: "{{ item.displayName }}: {{ item.offline }}"
+      with_items: "{{ build_agents.json.computer }}"
