@@ -4,8 +4,8 @@
   gather_facts: no
 
   vars:
-    jenkins_master_host: "44.223.48.234"  # Update this with the correct hostname or IP address
-    jenkins_master_port: 8080
+    jenkins_ip: "44.223.48.234"
+    jenkins_port: 8080
     slave_name: "my-slave"
     git_command: "git --version"
     maven_command: "mvn --version"
@@ -16,7 +16,7 @@
   tasks:
     - name: Check Jenkins Master-Slave connection
       uri:
-        url: "http://{{ jenkins_master_host }}:{{ jenkins_master_port }}/computer/{{ slave_name }}/api/json"
+        url: "http://{{ jenkins_ip }}:{{ jenkins_port }}/computer/{{ slave_name }}/api/json"
         method: GET
         return_content: yes
       register: slave_status
