@@ -56,19 +56,11 @@
       debug:
         msg: Docker Registry is not reachable.
       when: docker_result.status != 200
-    - name: Check for Out of Memory errors in dmesg
-      shell: dmesg | grep -i 'out of memory'
-      register: dmesg_oom_errors
-      changed_when: false
-      tags: memory_check
     - name: Check for Out of Memory errors in journalctl
       shell: journalctl -k | grep -i 'out of memory'
       register: journalctl_oom_errors
       changed_when: false
       tags: memory_check
-    - name: Fail if OOM errors are found in dmesg
-      fail:
-        msg: Out of Memory errors found in dmesg logs
       when: dmesg_oom_errors.stdout != ''
       tags: memory_check
     - name: Fail if OOM errors are found in journalctl
