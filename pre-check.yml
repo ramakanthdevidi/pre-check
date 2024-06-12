@@ -24,7 +24,7 @@
     - name: Ensure Slave is online
       fail:
         msg: "Slave {{ slave_name }} is not online or unreachable."
-      when: slave_status.json.offline == true or slave_status.failed
+      when: slave_status | failed or slave_status.status != 200 or ('json' in slave_status.content and slave_status.json.offline == true)
       tags: connection_check
 
     - name: Check if Git is installed
@@ -82,3 +82,4 @@
       debug:
         msg: "Docker Registry is not reachable."
       when: docker_result.status != 200
+
