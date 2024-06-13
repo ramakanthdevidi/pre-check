@@ -5,7 +5,7 @@
 
   vars:
     jenkins_ip: "10.63.20.41"
-    jenkins_port: 8082
+    jenkins_port: 8080
   tasks:
     - name: Check Jenkins Master-Slave connection
       uri:
