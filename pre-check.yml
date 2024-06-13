@@ -35,15 +35,15 @@
       register: total_memory
       ignore_errors: yes
 
-    - name: Print message if memory is insufficient
+    - name: Check Available Memory on Jenkins Server
       debug:
         msg: "Insufficient memory available on Jenkins server. Please allocate more memory."
       when: used_memory.stdout|int == total_memory.stdout|int
       ignore_errors: yes
 
-    - name: Skip memory check if memory is sufficient
+    - name: Check Available Memory on Jenkins Server
       debug:
-        msg: "Sufficient memory available on Jenkins server."
+        msg: "memory available on Jenkins server. {{ total_memory.stdout|int - used_memory.stdout|int }} MB left."
       when: used_memory.stdout|int != total_memory.stdout|int
 
     - name: Check if Maven is installed
@@ -78,12 +78,12 @@
       register: jenkins_connection
       ignore_errors: yes
 
-    - name: Print connection status
+    - name: Connection status
       debug:
         msg: "Connection to Jenkins master-slave endpoint succeeded."
       when: jenkins_connection.status == 200
 
-    - name: Print connection failed message
+    - name: Connection status
       debug:
         msg: "Connection to Jenkins master-slave endpoint failed."
       when: jenkins_connection.status != 200
