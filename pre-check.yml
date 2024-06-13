@@ -25,7 +25,7 @@
         msg: "Git is not installed."
       when: git_result is failed
 
-    - name: Check Available Memory on Jenkins Server
+  - name: Check Available Memory on Jenkins Server
       shell: free -m | awk 'NR==2{print $3}'   # Get used memory
       register: used_memory
       ignore_errors: yes
@@ -35,17 +35,16 @@
       register: total_memory
       ignore_errors: yes
 
-    - name: Print message if memory is insufficient
+    - name: Check if memory is insufficient
       debug:
         msg: "Insufficient memory available on Jenkins server. Please allocate more memory."
       when: used_memory.stdout|int == total_memory.stdout|int
-      ignore_errors: yes
 
-    - name: Skip memory check if memory is sufficient
+    - name: Print remaining memory if sufficient
       debug:
-        msg: "Sufficient memory available on Jenkins server."
+        msg: "memory available on Jenkins server. {{ total_memory.stdout|int - used_memory.stdout|int }} MB left."
       when: used_memory.stdout|int != total_memory.stdout|int
-
+      
     - name: Check if Maven is installed
       command: "{{ maven_command }}"
       register: maven_result
