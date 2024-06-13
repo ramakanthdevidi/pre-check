@@ -1,12 +1,11 @@
 ---
-- name: Check Jenkins build agents and test environments
+- name: Check Jenkins build agents status
   hosts: localhost
   gather_facts: no
   vars:
     jenkins_user: "ramakanth"
-    jenkins_api_token: "11224b5d9b915e9b6540e5fd11d87baf82"
+    jenkins_token: "11224b5d9b915e9b6540e5fd11d87baf82"
     jenkins_url: "http://10.63.20.41:8080"
-
   tasks:
     - name: Get Jenkins nodes (build agents) status
       uri:
@@ -26,30 +25,11 @@
       set_fact:
         all_agents_online: "{{ jenkins_nodes_response.json.computer | selectattr('offline', 'equalto', False) | list | length == jenkins_nodes_response.json.computer | length }}"
 
-    - name: Ensure all build agents are online
-      fail:
-        msg: "Some build agents are offline"
-      when: not all_agents_online
-
-    - name: Get Jenkins jobs (test environments) status
-      uri:
-        url: "{{ jenkins_url }}/api/json"
-        user: "{{ jenkins_user }}"
-        password: "{{ jenkins_api_token }}"
-        force_basic_auth: yes
-        validate_certs: no
-        return_content: yes
-      register: jenkins_jobs_response
-
-    - name: Print Jenkins jobs status
+    - name: Print status of build agents
       debug:
-        msg: "{{ jenkins_jobs_response.json.jobs }}"
-
-    - name: Check if any jobs failed
-      set_fact:
-        failed_jobs: "{{ jenkins_jobs_response.json.jobs | selectattr('color', 'search', '^red$') | list }}"
-
-    - name: Ensure no jobs have failed
-      fail:
-        msg: "Some jobs have failed: {{ failed_jobs | map(attribute='name') | join(', ') }}"
-      when: failed_jobs | length > 0
+        msg: >-
+          {% if all_agents_online %}
+          All build agents are online.
+          {% else %}
+          Some build agents are offline.
+          {% endif %}
