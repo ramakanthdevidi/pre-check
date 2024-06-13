@@ -1,118 +1,55 @@
 ---
-- name: Pre-Checks for Jenkins Environment
+- name: Check Jenkins build agents and test environments
   hosts: localhost
   gather_facts: no
-
   vars:
-    jenkins_ip: "10.63.20.41"
-    jenkins_port: 8080
-    git_command: "git --version"
-    maven_command: "mvn --version"
-    kubectl_command: "kubectl version --client"
-    sonar_url: "http://10.138.77.104:9000"
-    docker_registry_url: "https://hub.docker.com/u/bhavanaguda"
     jenkins_user: "ramakanth"
     jenkins_token: "11224b5d9b915e9b6540e5fd11d87baf82"
     jenkins_url: "http://10.63.20.41:8080"
 
   tasks:
-    - name: Check if Git is installed
-      command: "{{ git_command }}"
-      register: git_result
-      ignore_errors: yes
-
-    - name: git
-      debug:
-        msg: "Git is not installed."
-      when: git_result is failed
-
-    - name: Check Available Memory on Jenkins Server
-      shell: free -m | awk 'NR==2{print $3}'   # Get used memory
-      register: used_memory
-      ignore_errors: yes
-
-    - name: Check Total Memory on Jenkins Server
-      shell: free -m | awk 'NR==2{print $2}'   # Get total memory
-      register: total_memory
-      ignore_errors: yes
-
-    - name: Check Available Memory on Jenkins Server
-      debug:
-        msg: "Insufficient memory available on Jenkins server. Please allocate more memory."
-      when: used_memory.stdout|int == total_memory.stdout|int
-      ignore_errors: yes
-
-    - name: Check Available Memory on Jenkins Server
-      debug:
-        msg: "memory available on Jenkins server. {{ total_memory.stdout|int - used_memory.stdout|int }} MB left."
-      when: used_memory.stdout|int != total_memory.stdout|int
-
-    - name: Check if Maven is installed
-      command: "{{ maven_command }}"
-      register: maven_result
-      ignore_errors: yes
-
-    - name: maven
-      debug:
-        msg: "Maven is not installed."
-      when: maven_result is failed
-
-    - name: Check if Kubernetes is installed
-      command: "{{ kubectl_command }}"
-      register: kubectl_result
-      ignore_errors: yes
-
-    - name: Kubernetes
-      debug:
-        msg: "Kubernetes is not installed."
-      when: kubectl_result is failed
-
-    - name: Check Jenkins Master-Slave connection
+    - name: Get Jenkins nodes (build agents) status
       uri:
-        url: "http://{{ jenkins_ip }}:{{ jenkins_port }}/computer/api/json"
-        method: GET
+        url: "{{ jenkins_url }}/computer/api/json"
         user: "{{ jenkins_user }}"
-        password: "{{ jenkins_token }}"
+        password: "{{ jenkins_api_token }}"
         force_basic_auth: yes
+        validate_certs: no
         return_content: yes
-        status_code: 200
-      register: jenkins_connection
-      ignore_errors: yes
+      register: jenkins_nodes_response
 
-    - name: Connection status
+    - name: Print Jenkins nodes status
       debug:
-        msg: "Connection to Jenkins master-slave endpoint succeeded."
-      when: jenkins_connection.status == 200
+        msg: "{{ jenkins_nodes_response.json }}"
 
-    - name: Connection status
-      debug:
-        msg: "Connection to Jenkins master-slave endpoint failed."
-      when: jenkins_connection.status != 200
+    - name: Check if all build agents are online
+      set_fact:
+        all_agents_online: "{{ jenkins_nodes_response.json.computer | selectattr('offline', 'equalto', False) | list | length == jenkins_nodes_response.json.computer | length }}"
 
-    - name: Check if SonarQube is reachable
+    - name: Ensure all build agents are online
+      fail:
+        msg: "Some build agents are offline"
+      when: not all_agents_online
+
+    - name: Get Jenkins jobs (test environments) status
       uri:
-        url: "{{ sonar_url }}"
+        url: "{{ jenkins_url }}/api/json"
+        user: "{{ jenkins_user }}"
+        password: "{{ jenkins_api_token }}"
+        force_basic_auth: yes
+        validate_certs: no
         return_content: yes
-        status_code: 200
-      register: sonar_result
-      ignore_errors: yes
+      register: jenkins_jobs_response
 
-    - name: SonarQube
+    - name: Print Jenkins jobs status
       debug:
-        msg: "SonarQube is not reachable."
-      when: sonar_result.status != 200
+        msg: "{{ jenkins_jobs_response.json.jobs }}"
 
-    - name: Check if Docker Registry is reachable
-      uri:
-        url: "{{ docker_registry_url }}"
-        return_content: yes
-        status_code: 200
-      register: docker_result
-      ignore_errors: yes
+    - name: Check if any jobs failed
+      set_fact:
+        failed_jobs: "{{ jenkins_jobs_response.json.jobs | selectattr('color', 'search', '^red$') | list }}"
 
-    - name: Docker
-      debug:
-        msg: "Docker Registry is not reachable."
-      when: docker_result.status != 200
-
-     
+    - name: Ensure no jobs have failed
+      fail:
+        msg: "Some jobs have failed: {{ failed_jobs | map(attribute='name') | join(', ') }}"
+      when: failed_jobs | length > 0
