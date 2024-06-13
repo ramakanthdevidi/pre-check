@@ -21,8 +21,8 @@
       register: git_result
       ignore_errors: yes
 
-    - name: git
-      debug:
+    - name: Fail if Git is not installed
+      fail:
         msg: "Git is not installed."
       when: git_result is failed
 
@@ -36,24 +36,19 @@
       register: total_memory
       ignore_errors: yes
 
-    - name: Check Available Memory on Jenkins Server
-      debug:
+    - name: Fail if memory is insufficient
+      fail:
         msg: "Insufficient memory available on Jenkins server. Please allocate more memory."
       when: used_memory.stdout|int == total_memory.stdout|int
       ignore_errors: yes
-
-    - name: Check Available Memory on Jenkins Server
-      debug:
-        msg: "memory available on Jenkins server. {{ total_memory.stdout|int - used_memory.stdout|int }} MB left."
-      when: used_memory.stdout|int != total_memory.stdout|int
 
     - name: Check if Maven is installed
       command: "{{ maven_command }}"
       register: maven_result
       ignore_errors: yes
 
-    - name: maven
-      debug:
+    - name: Fail if Maven is not installed
+      fail:
         msg: "Maven is not installed."
       when: maven_result is failed
 
@@ -62,8 +57,8 @@
       register: kubectl_result
       ignore_errors: yes
 
-    - name: Kubernetes
-      debug:
+    - name: Fail if Kubernetes is not installed
+      fail:
         msg: "Kubernetes is not installed."
       when: kubectl_result is failed
 
@@ -79,13 +74,8 @@
       register: jenkins_connection
       ignore_errors: yes
 
-    - name: Connection status
-      debug:
-        msg: "Connection to Jenkins master-slave endpoint succeeded."
-      when: jenkins_connection.status == 200
-
-    - name: Connection status
-      debug:
+    - name: Fail if Jenkins master-slave connection failed
+      fail:
         msg: "Connection to Jenkins master-slave endpoint failed."
       when: jenkins_connection.status != 200
 
@@ -95,9 +85,10 @@
         return_content: yes
         status_code: 200
       register: sonar_result
+      ignore_errors: yes
 
-    - name: SonarQube
-      debug:
+    - name: Fail if SonarQube is not reachable
+      fail:
         msg: "SonarQube is not reachable."
       when: sonar_result.status != 200
 
@@ -109,8 +100,8 @@
       register: docker_result
       ignore_errors: yes
 
-    - name: Docker
-      debug:
+    - name: Fail if Docker Registry is not reachable
+      fail:
         msg: "Docker Registry is not reachable."
       when: docker_result.status != 200
 
@@ -138,9 +129,3 @@
     - name: Print offline build agents
       debug:
         msg: "Offline build agents: {{ offline_agents }}"
-
-
-  
-
-
-    
