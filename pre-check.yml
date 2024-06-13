@@ -1,32 +1,136 @@
 ---
-- name: Check Jenkins Master-Slave Connection
+- name: Pre-Checks for Jenkins Environment
   hosts: localhost
   gather_facts: no
 
   vars:
-    jenkins_ip: "44.223.48.234"
-    jenkins_port: 8080
-    jenkins_admin_user: "admin"
-    jenkins_admin_token: "118e1fc9091f867ce9a87f71505e3bb4b8"
-
+    jenkins_ip: "10.63.20.41."
+    jenkins_port: 8082
+    git_command: "git --version"
+    maven_command: "mvn --version"
+    kubectl_command: "kubectl version --client"
+    sonar_url: "http://10.138.77.104:9000"
+    docker_registry_url: "https://hub.docker.com/u/bhavanaguda"
+  
   tasks:
+
+    - name: Check if Git is installed
+      command: "{{ git_command }}"
+      register: git_result
+      ignore_errors: yes
+
+    - name: git
+      debug:
+        msg: "Git is not installed."
+      when: git_result is failed
+
+    - name: Check Available Memory on Jenkins Server
+      shell: free -m | awk 'NR==2{print $3}'   # Get used memory
+      register: used_memory
+      ignore_errors: yes
+
+    - name: Check Total Memory on Jenkins Server
+      shell: free -m | awk 'NR==2{print $2}'   # Get total memory
+      register: total_memory
+      ignore_errors: yes
+
+    - name: Print message if memory is insufficient
+      debug:
+        msg: "Insufficient memory available on Jenkins server. Please allocate more memory."
+      when: used_memory.stdout|int == total_memory.stdout|int
+      ignore_errors: yes
+
+    - name: Skip memory check if memory is sufficient
+      debug:
+        msg: "Sufficient memory available on Jenkins server."
+      when: used_memory.stdout|int != total_memory.stdout|int
+
+    - name: Check if Maven is installed
+      command: "{{ maven_command }}"
+      register: maven_result
+      ignore_errors: yes
+
+    - name: maven
+      debug:
+        msg: "Maven is not installed."
+      when: maven_result is failed
+
+    - name: Check if Kubernetes is installed
+      command: "{{ kubectl_command }}"
+      register: kubectl_result
+      ignore_errors: yes
+
+    - name: Kubernetes
+      debug:
+        msg: "Kubernetes is not installed."
+      when: kubectl_result is failed
+
     - name: Check Jenkins Master-Slave connection
       uri:
         url: "http://{{ jenkins_ip }}:{{ jenkins_port }}/computer/api/json"
-        user: "{{ jenkins_admin_user }}"
-        password: "{{ jenkins_admin_token }}"
         method: GET
+        user: "{{ jenkins_user }}"
+        password: "{{ jenkins_token }}"
+        force_basic_auth: yes
         return_content: yes
         status_code: 200
       register: jenkins_connection
       ignore_errors: yes
 
-    - name: Print connection status
+    - name:connection status
       debug:
         msg: "Connection to Jenkins master-slave endpoint succeeded."
       when: jenkins_connection.status == 200
 
-    - name: Print connection failed message
+    - name:connection status
       debug:
         msg: "Connection to Jenkins master-slave endpoint failed."
       when: jenkins_connection.status != 200
+
+    - name: Check if SonarQube is reachable
+      uri:
+        url: "{{ sonar_url }}"
+        return_content: yes
+        status_code: 200
+      register: sonar_result
+      ignore_errors: yes
+
+    - name: SonarQube
+      debug:
+        msg: "SonarQube is not reachable."
+      when: sonar_result.status != 200
+
+    - name: Check if Docker Registry is reachable
+      uri:
+        url: "{{ docker_registry_url }}"
+        return_content: yes
+        status_code: 200
+      register: docker_result
+      ignore_errors: yes
+
+    - name: Docker
+      debug:
+        msg: "Docker Registry is not reachable."
+      when: docker_result.status != 200
+
+    - name: Get Jenkins build agents status
+      uri:
+        url: "http://{{ jenkins_ip }}:{{ jenkins_port }}/computer/api/json"
+        method: GET
+        user: "{{ jenkins_user }}"
+        password: "{{ jenkins_token }}"
+        force_basic_auth: yes
+        return_content: yes
+        status_code: 200
+      register: jenkins_agents
+      ignore_errors: yes
+
+    - name: Print agents availability status
+      debug:
+        msg: "Jenkins build agents are available."
+      when: jenkins_agents.status == 200
+
+    - name: Print agents not available message
+      debug:
+        msg: "Jenkins build agents are not available."
+      when: jenkins_agents.status != 200
