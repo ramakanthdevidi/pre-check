@@ -9,7 +9,7 @@
     kubectl_command: "kubectl version --client"
     sonar_url: "http://10.138.77.104:9000"
     docker_registry_url: "https://hub.docker.com/u/bhavanaguda"
-    jenkins_ip: "10.138.77.53"
+    jenkins_ip: "10.63.20.41"
     jenkins_port: 8082
  
   tasks:
