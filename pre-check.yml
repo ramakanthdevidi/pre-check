@@ -13,6 +13,7 @@
     docker_registry_url: "https://hub.docker.com/u/bhavanaguda"
     jenkins_user: "ramakanth"
     jenkins_token: "11224b5d9b915e9b6540e5fd11d87baf82"
+    jenkins_url: "http://10.63.20.41:8080"
 
   tasks:
     - name: Check if Git is installed
@@ -113,5 +114,35 @@
       debug:
         msg: "Docker Registry is not reachable."
       when: docker_result.status != 200
+
+    - name: Fetch Jenkins nodes information
+      uri:
+        url: "{{ jenkins_url }}/computer/api/json"
+        method: GET
+        user: "{{ jenkins_user }}"
+        password: "{{ jenkins_token }}"
+        force_basic_auth: yes
+        return_content: yes
+      register: nodes_info
+      until: nodes_info.status == 200
+      retries: 3
+      delay: 5
+
+    - name: Parse nodes information
+      set_fact:
+        nodes: "{{ nodes_info.json | from_json }}"
+
+    - name: Check if build agents are available
+      debug:
+        msg: "Build agents are available."
+      when: nodes.computer | length > 1  # Adjust the condition based on your Jenkins setup
+      # The condition `nodes.computer | length > 1` assumes there are at least 2 nodes (master + at least one build agent)
+
+    - name: Print nodes information
+      debug:
+        var: nodes
+
+
+
 
    
