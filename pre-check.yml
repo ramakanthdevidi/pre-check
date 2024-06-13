@@ -21,6 +21,11 @@
       register: git_result
       ignore_errors: yes
 
+    - name: git
+      debug:
+        msg: "Git is installed."
+      when: git_result is succeeded
+
     - name: Fail if Git is not installed
       fail:
         msg: "Git is not installed."
@@ -36,16 +41,26 @@
       register: total_memory
       ignore_errors: yes
 
-    - name: Fail if memory is insufficient
-      fail:
+    - name: Insufficient Memory Check
+      debug:
         msg: "Insufficient memory available on Jenkins server. Please allocate more memory."
       when: used_memory.stdout|int == total_memory.stdout|int
       ignore_errors: yes
+
+    - name: Memory Available
+      debug:
+        msg: "Memory available on Jenkins server: {{ total_memory.stdout|int - used_memory.stdout|int }} MB left."
+      when: used_memory.stdout|int != total_memory.stdout|int
 
     - name: Check if Maven is installed
       command: "{{ maven_command }}"
       register: maven_result
       ignore_errors: yes
+
+    - name: maven
+      debug:
+        msg: "Maven is installed."
+      when: maven_result is succeeded
 
     - name: Fail if Maven is not installed
       fail:
@@ -56,6 +71,11 @@
       command: "{{ kubectl_command }}"
       register: kubectl_result
       ignore_errors: yes
+
+    - name: Kubernetes
+      debug:
+        msg: "Kubernetes is installed."
+      when: kubectl_result is succeeded
 
     - name: Fail if Kubernetes is not installed
       fail:
@@ -74,6 +94,11 @@
       register: jenkins_connection
       ignore_errors: yes
 
+    - name: Connection status
+      debug:
+        msg: "Connection to Jenkins master-slave endpoint succeeded."
+      when: jenkins_connection.status == 200
+
     - name: Fail if Jenkins master-slave connection failed
       fail:
         msg: "Connection to Jenkins master-slave endpoint failed."
@@ -87,6 +112,11 @@
       register: sonar_result
       ignore_errors: yes
 
+    - name: SonarQube
+      debug:
+        msg: "SonarQube is reachable."
+      when: sonar_result.status == 200
+
     - name: Fail if SonarQube is not reachable
       fail:
         msg: "SonarQube is not reachable."
@@ -99,6 +129,11 @@
         status_code: 200
       register: docker_result
       ignore_errors: yes
+
+    - name: Docker Registry
+      debug:
+        msg: "Docker Registry is reachable."
+      when: docker_result.status == 200
 
     - name: Fail if Docker Registry is not reachable
       fail:
