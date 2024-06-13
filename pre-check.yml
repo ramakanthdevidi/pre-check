@@ -4,7 +4,7 @@
   gather_facts: no
   vars:
     jenkins_user: "ramakanth"
-    jenkins_token: "11224b5d9b915e9b6540e5fd11d87baf82"
+    jenkins_api_token: "11224b5d9b915e9b6540e5fd11d87baf82"
     jenkins_url: "http://10.63.20.41:8080"
 
   tasks:
