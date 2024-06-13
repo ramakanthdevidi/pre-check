@@ -20,7 +20,7 @@
       register: git_result
       ignore_errors: yes
 
-    - name: Print Git not installed message
+    - name: git
       debug:
         msg: "Git is not installed."
       when: git_result is failed
@@ -35,26 +35,23 @@
       register: total_memory
       ignore_errors: yes
 
-    - name: Calculate remaining memory
-      set_fact:
-        remaining_memory: "{{ total_memory.stdout|int - used_memory.stdout|int }}"
-
-    - name: Print message if remaining memory is less than 1GB
+    - name: Print message if memory is insufficient
       debug:
-        msg: "Insufficient memory available on Jenkins server. {{ remaining_memory }} MB left. Please allocate more memory."
-      when: remaining_memory < 1024
+        msg: "Insufficient memory available on Jenkins server. Please allocate more memory."
+      when: used_memory.stdout|int == total_memory.stdout|int
+      ignore_errors: yes
 
-    - name: Print message if remaining memory is sufficient
+    - name: Skip memory check if memory is sufficient
       debug:
-        msg: "Sufficient memory available on Jenkins server. {{ remaining_memory }} MB left."
-      when: remaining_memory >= 1024
+        msg: "Sufficient memory available on Jenkins server."
+      when: used_memory.stdout|int != total_memory.stdout|int
 
     - name: Check if Maven is installed
       command: "{{ maven_command }}"
       register: maven_result
       ignore_errors: yes
 
-    - name: Print Maven not installed message
+    - name: maven
       debug:
         msg: "Maven is not installed."
       when: maven_result is failed
@@ -64,7 +61,7 @@
       register: kubectl_result
       ignore_errors: yes
 
-    - name: Print Kubernetes not installed message
+    - name: Kubernetes
       debug:
         msg: "Kubernetes is not installed."
       when: kubectl_result is failed
@@ -90,3 +87,31 @@
       debug:
         msg: "Connection to Jenkins master-slave endpoint failed."
       when: jenkins_connection.status != 200
+
+    - name: Check if SonarQube is reachable
+      uri:
+        url: "{{ sonar_url }}"
+        return_content: yes
+        status_code: 200
+      register: sonar_result
+      ignore_errors: yes
+
+    - name: SonarQube
+      debug:
+        msg: "SonarQube is not reachable."
+      when: sonar_result.status != 200
+
+    - name: Check if Docker Registry is reachable
+      uri:
+        url: "{{ docker_registry_url }}"
+        return_content: yes
+        status_code: 200
+      register: docker_result
+      ignore_errors: yes
+
+    - name: Docker
+      debug:
+        msg: "Docker Registry is not reachable."
+      when: docker_result.status != 200
+
+   
