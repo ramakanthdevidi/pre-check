@@ -11,8 +11,6 @@
     kubectl_command: "kubectl version --client"
     sonar_url: "http://10.138.77.104:9000"
     docker_registry_url: "https://hub.docker.com/u/bhavanaguda"
-    jenkins_user: "admin"
-    jenkins_token: "118e1fc9091f867ce9a87f71505e3bb4b8"
 
   tasks:
 
@@ -67,28 +65,6 @@
         msg: "Kubernetes is not installed."
       when: kubectl_result is failed
 
-    - name: Check Jenkins Master-Slave connection
-      uri:
-        url: "http://{{ jenkins_ip }}:{{ jenkins_port }}/computer/api/json"
-        method: GET
-        user: "{{ jenkins_user }}"
-        password: "{{ jenkins_token }}"
-        force_basic_auth: yes
-        return_content: yes
-        status_code: 200
-      register: jenkins_connection
-      ignore_errors: yes
-
-    - name: Print connection status
-      debug:
-        msg: "Connection to Jenkins master-slave endpoint succeeded."
-      when: jenkins_connection.status == 200
-
-    - name: Print connection failed message
-      debug:
-        msg: "Connection to Jenkins master-slave endpoint failed."
-      when: jenkins_connection.status != 200
-
     - name: Check if SonarQube is reachable
       uri:
         url: "{{ sonar_url }}"
@@ -114,25 +90,3 @@
       debug:
         msg: "Docker Registry is not reachable."
       when: docker_result.status != 200
-
-    - name: Get Jenkins build agents status
-      uri:
-        url: "http://{{ jenkins_ip }}:{{ jenkins_port }}/computer/api/json"
-        method: GET
-        user: "{{ jenkins_user }}"
-        password: "{{ jenkins_token }}"
-        force_basic_auth: yes
-        return_content: yes
-        status_code: 200
-      register: jenkins_agents
-      ignore_errors: yes
-
-    - name: Print agents availability status
-      debug:
-        msg: "Jenkins build agents are available."
-      when: jenkins_agents.status == 200
-
-    - name: Print agents not available message
-      debug:
-        msg: "Jenkins build agents are not available."
-      when: jenkins_agents.status != 200
