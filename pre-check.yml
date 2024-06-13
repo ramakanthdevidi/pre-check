@@ -66,3 +66,20 @@
       debug:
         msg: "Docker Registry is not reachable."
       when: docker_result.status != 200 
+       - name: Check Jenkins Master-Slave connection
+      uri:
+        url: "http://{{ jenkins_ip }}:{{ jenkins_port }}/computer/api/json"
+        method: GET
+        return_content: yes
+        status_code: 200
+      register: jenkins_connection
+
+    - name: Print connection status
+      debug:
+        msg: "Connection to Jenkins master-slave endpoint succeeded."
+      when: jenkins_connection.status == 200
+
+    - name: Print connection failed message
+      debug:
+        msg: "Connection to Jenkins master-slave endpoint failed."
+      when: jenkins_connection.status != 200
