@@ -35,16 +35,17 @@
       register: total_memory
       ignore_errors: yes
 
-    - name: Check if memory is insufficient
+    - name: Print message if memory is insufficient
       debug:
         msg: "Insufficient memory available on Jenkins server. Please allocate more memory."
       when: used_memory.stdout|int == total_memory.stdout|int
+      ignore_errors: yes
 
-    - name: Print remaining memory if sufficient
+    - name: Skip memory check if memory is sufficient
       debug:
-        msg: "memory available on Jenkins server. {{ total_memory.stdout|int - used_memory.stdout|int }} MB left."
+        msg: "Sufficient memory available on Jenkins server."
       when: used_memory.stdout|int != total_memory.stdout|int
-      
+
     - name: Check if Maven is installed
       command: "{{ maven_command }}"
       register: maven_result
