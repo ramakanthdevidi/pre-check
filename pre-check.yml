@@ -16,159 +16,164 @@
     jenkins_url: "http://10.63.20.41:8080"
 
   tasks:
-    - name: Pre-checks
+    - name: Check if Git is installed
+      command: "{{ git_command }}"
+      register: git_result
+      ignore_errors: yes
+
+    - name: git
+      debug:
+        msg: "Git is installed."
+      when: git_result is succeeded
+
+    - name: Fail if Git is not installed
+      set_fact:
+        critical_failure: true
+      when: git_result is failed
+
+    - name: Check Available Memory on Jenkins Server
+      shell: free -m | awk 'NR==2{print $3}'   # Get used memory
+      register: used_memory
+      ignore_errors: yes
+
+    - name: Check Total Memory on Jenkins Server
+      shell: free -m | awk 'NR==2{print $2}'   # Get total memory
+      register: total_memory
+      ignore_errors: yes
+
+    - name: Insufficient Memory Check
+      debug:
+        msg: "Insufficient memory available on Jenkins server. Please allocate more memory."
+      when: used_memory.stdout|int == total_memory.stdout|int
+      ignore_errors: yes
+
+    - name: Memory Available
+      debug:
+        msg: "Memory available on Jenkins server: {{ total_memory.stdout|int - used_memory.stdout|int }} MB left."
+      when: used_memory.stdout|int != total_memory.stdout|int
+
+    - name: Check if Maven is installed
+      command: "{{ maven_command }}"
+      register: maven_result
+      ignore_errors: yes
+
+    - name: maven
+      debug:
+        msg: "Maven is installed."
+      when: maven_result is succeeded
+
+    - name: Fail if Maven is not installed
+      set_fact:
+        critical_failure: true
+      when: maven_result is failed
+
+    - name: Check if Kubernetes is installed
+      command: "{{ kubectl_command }}"
+      register: kubectl_result
+      ignore_errors: yes
+
+    - name: Kubernetes
+      debug:
+        msg: "Kubernetes is installed."
+      when: kubectl_result is succeeded
+
+    - name: Fail if Kubernetes is not installed
+      set_fact:
+        critical_failure: true
+      when: kubectl_result is failed
+
+    - name: Check Jenkins Master-Slave connection
+      uri:
+        url: "http://{{ jenkins_ip }}:{{ jenkins_port }}/computer/api/json"
+        method: GET
+        user: "{{ jenkins_user }}"
+        password: "{{ jenkins_token }}"
+        force_basic_auth: yes
+        return_content: yes
+        status_code: 200
+      register: jenkins_connection
+      ignore_errors: yes
+
+    - name: Connection status
+      debug:
+        msg: "Connection to Jenkins master-slave endpoint succeeded."
+      when: jenkins_connection.status == 200
+
+    - name: Fail if Jenkins master-slave connection failed
+      set_fact:
+        critical_failure: true
+      when: jenkins_connection.status != 200
+
+    - name: Check if SonarQube is reachable
+      uri:
+        url: "{{ sonar_url }}"
+        return_content: yes
+        status_code: 200
+      register: sonar_result
+      ignore_errors: yes
+
+    - name: SonarQube
+      debug:
+        msg: "SonarQube is reachable."
+      when: sonar_result.status == 200
+
+    - name: Fail if SonarQube is not reachable
+      set_fact:
+        critical_failure: true
+      when: sonar_result.status != 200
+
+    - name: Check if Docker Registry is reachable
+      uri:
+        url: "{{ docker_registry_url }}"
+        return_content: yes
+        status_code: 200
+      register: docker_result
+      ignore_errors: yes
+
+    - name: Docker Registry
+      debug:
+        msg: "Docker Registry is reachable."
+      when: docker_result.status == 200
+
+    - name: Fail if Docker Registry is not reachable
+      set_fact:
+        critical_failure: true
+      when: docker_result.status != 200
+
+    - name: Get Jenkins nodes (build agents) status
+      uri:
+        url: "{{ jenkins_url }}/computer/api/json"
+        method: GET
+        user: "{{ jenkins_user }}"
+        password: "{{ jenkins_token }}"
+        force_basic_auth: yes
+        validate_certs: no
+        return_content: yes
+      register: jenkins_nodes_response
+      ignore_errors: yes
+
+    - name: Check if Jenkins nodes (build agents) are online
+      set_fact:
+        online_agents: "{{ jenkins_nodes_response.json.computer | selectattr('offline', 'equalto', False) | map(attribute='displayName') | list }}"
+        offline_agents: "{{ jenkins_nodes_response.json.computer | selectattr('offline', 'equalto', True) | map(attribute='displayName') | list }}"
+
+    - name: Print online build agents
+      debug:
+        msg: "Online build agents: {{ online_agents }}"
+
+    - name: Print offline build agents
+      debug:
+        msg: "Offline build agents: {{ offline_agents }}"
+
+    - name: Final check and stop playbook if critical failure
       block:
-
-        - name: Check if Git is installed
-          command: "{{ git_command }}"
-          register: git_result
-          ignore_errors: yes
-
-        - name: git
-          debug:
-            msg: "Git is installed."
-          when: git_result is succeeded
-
-        - name: Fail if Git is not installed
+        - name: Fail playbook if critical issues found
           fail:
-            msg: "Git is not installed."
-          when: git_result is failed
+            msg: "Critical issues found. Halting playbook execution."
+          when: critical_failure | default(false)
 
-        - name: Check Available Memory on Jenkins Server
-          shell: free -m | awk 'NR==2{print $3}'   # Get used memory
-          register: used_memory
-          ignore_errors: yes
-
-        - name: Check Total Memory on Jenkins Server
-          shell: free -m | awk 'NR==2{print $2}'   # Get total memory
-          register: total_memory
-          ignore_errors: yes
-
-        - name: Insufficient Memory Check
+        - name: Success message if no critical issues found
           debug:
-            msg: "Insufficient memory available on Jenkins server. Please allocate more memory."
-          when: used_memory.stdout|int == total_memory.stdout|int
-          ignore_errors: yes
+            msg: "All pre-checks passed. Continuing with next stage."
 
-        - name: Memory Available
-          debug:
-            msg: "Memory available on Jenkins server: {{ total_memory.stdout|int - used_memory.stdout|int }} MB left."
-          when: used_memory.stdout|int != total_memory.stdout|int
-
-        - name: Check if Maven is installed
-          command: "{{ maven_command }}"
-          register: maven_result
-          ignore_errors: yes
-
-        - name: maven
-          debug:
-            msg: "Maven is installed."
-          when: maven_result is succeeded
-
-        - name: Fail if Maven is not installed
-          fail:
-            msg: "Maven is not installed."
-          when: maven_result is failed
-
-        - name: Check if Kubernetes is installed
-          command: "{{ kubectl_command }}"
-          register: kubectl_result
-          ignore_errors: yes
-
-        - name: Kubernetes
-          debug:
-            msg: "Kubernetes is installed."
-          when: kubectl_result is succeeded
-
-        - name: Fail if Kubernetes is not installed
-          fail:
-            msg: "Kubernetes is not installed."
-          when: kubectl_result is failed
-
-        - name: Check Jenkins Master-Slave connection
-          uri:
-            url: "http://{{ jenkins_ip }}:{{ jenkins_port }}/computer/api/json"
-            method: GET
-            user: "{{ jenkins_user }}"
-            password: "{{ jenkins_token }}"
-            force_basic_auth: yes
-            return_content: yes
-            status_code: 200
-          register: jenkins_connection
-          ignore_errors: yes
-
-        - name: Connection status
-          debug:
-            msg: "Connection to Jenkins master-slave endpoint succeeded."
-          when: jenkins_connection.status == 200
-
-        - name: Fail if Jenkins master-slave connection failed
-          fail:
-            msg: "Connection to Jenkins master-slave endpoint failed."
-          when: jenkins_connection.status != 200
-
-        - name: Check if SonarQube is reachable
-          uri:
-            url: "{{ sonar_url }}"
-            return_content: yes
-            status_code: 200
-          register: sonar_result
-          ignore_errors: yes
-
-        - name: SonarQube
-          debug:
-            msg: "SonarQube is reachable."
-          when: sonar_result.status == 200
-
-        - name: Fail if SonarQube is not reachable
-          fail:
-            msg: "SonarQube is not reachable."
-          when: sonar_result.status != 200
-
-        - name: Check if Docker Registry is reachable
-          uri:
-            url: "{{ docker_registry_url }}"
-            return_content: yes
-            status_code: 200
-          register: docker_result
-          ignore_errors: yes
-
-        - name: Docker Registry
-          debug:
-            msg: "Docker Registry is reachable."
-          when: docker_result.status == 200
-
-        - name: Fail if Docker Registry is not reachable
-          fail:
-            msg: "Docker Registry is not reachable."
-          when: docker_result.status != 200
-
-        - name: Get Jenkins nodes (build agents) status
-          uri:
-            url: "{{ jenkins_url }}/computer/api/json"
-            method: GET
-            user: "{{ jenkins_user }}"
-            password: "{{ jenkins_token }}"
-            force_basic_auth: yes
-            validate_certs: no
-            return_content: yes
-          register: jenkins_nodes_response
-          ignore_errors: yes
-
-        - name: Check if Jenkins nodes (build agents) are online
-          set_fact:
-            online_agents: "{{ jenkins_nodes_response.json.computer | selectattr('offline', 'equalto', False) | map(attribute='displayName') | list }}"
-            offline_agents: "{{ jenkins_nodes_response.json.computer | selectattr('offline', 'equalto', True) | map(attribute='displayName') | list }}"
-
-        - name: Print online build agents
-          debug:
-            msg: "Online build agents: {{ online_agents }}"
-
-        - name: Print offline build agents
-          debug:
-            msg: "Offline build agents: {{ offline_agents }}"
-
-      rescue:
-        - name: Fail if any critical task failed
-          fail:
-            msg: "One or more critical checks failed. Halting playbook execution."
+      when: critical_failure | default(false)
