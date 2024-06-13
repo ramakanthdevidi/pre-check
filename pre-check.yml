@@ -104,24 +104,6 @@
         critical_failure: true
       when: jenkins_connection.status != 200
 
-    - name: Check if SonarQube is reachable
-      uri:
-        url: "{{ sonar_url }}"
-        return_content: yes
-        status_code: 200
-      register: sonar_result
-      ignore_errors: yes
-
-    - name: SonarQube
-      debug:
-        msg: "SonarQube is reachable."
-      when: sonar_result.status == 200
-
-    - name: Fail if SonarQube is not reachable
-      set_fact:
-        critical_failure: true
-      when: sonar_result.status != 200
-
     - name: Check if Docker Registry is reachable
       uri:
         url: "{{ docker_registry_url }}"
